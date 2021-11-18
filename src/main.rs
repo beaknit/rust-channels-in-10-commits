@@ -1,24 +1,33 @@
 use tokio::sync::mpsc;
 
-fn main() {
-    route();
+#[tokio::main]
+async fn main() {
+    let (tx, mut rx) = mpsc::channel(32);
+
+    tokio::spawn(async move { run_client_pool(rx).await });
+
+    route(tx).await;
 }
 
 // #["/create-pointer", "GET"]
-fn route() {
-    biz_logix();
+async fn route(tx: mpsc::Sender<String>) {
+    biz_logix(tx).await;
 }
 
-fn biz_logix() {
-    for x in (1..5) {
+async fn biz_logix(tx: mpsc::Sender<String>) {
+    for x in 1..=50 {
         println!("Call number {}", x);
-        call_service();
+        let tx_clone = tx.clone();
+        tx_clone
+            .send(format!("Call number {} done!!", x))
+            .await
+            .unwrap()
     }
 }
 
-async fn call_service() {
+async fn call_service(msg: &str) {
     // create_service_conn();
-    println!("Done!")
+    println!("{}", msg)
 }
 
 fn create_service_conn() {
@@ -27,9 +36,9 @@ fn create_service_conn() {
 }
 
 // Client Pool
-async fn run_client_pool(mut receiver: mpsc::Receiver<&str>) {
+async fn run_client_pool(mut receiver: mpsc::Receiver<String>) {
     create_service_conn();
     while let Some(message) = receiver.recv().await {
-        call_service().await
+        call_service(&message).await
     }
 }
