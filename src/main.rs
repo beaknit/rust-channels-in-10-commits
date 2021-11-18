@@ -1,3 +1,5 @@
+use tokio::sync::mpsc;
+
 fn main() {
     route();
 }
@@ -14,12 +16,20 @@ fn biz_logix() {
     }
 }
 
-fn call_service() {
-    create_service_conn();
+async fn call_service() {
+    // create_service_conn();
     println!("Done!")
 }
 
 fn create_service_conn() {
     let sleep_dur = std::time::Duration::from_secs(2);
     std::thread::sleep(sleep_dur);
+}
+
+// Client Pool
+async fn run_client_pool(mut receiver: mpsc::Receiver<&str>) {
+    create_service_conn();
+    while let Some(message) = receiver.recv().await {
+        call_service().await
+    }
 }
