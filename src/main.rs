@@ -11,30 +11,37 @@ async fn main() {
 }
 
 // #["/create-pointer", "GET"]
-async fn route(tx: mpsc::Sender<Message>) {
+async fn route(tx: mpsc::Sender<ServiceNum>) {
     biz_logix(tx).await;
 }
 
-async fn biz_logix(tx: mpsc::Sender<Message>) {
+async fn biz_logix(tx: mpsc::Sender<ServiceNum>) {
     for x in 1..=50 {
         println!("Call number {}", x);
 
         let msg1 = Message::new(x);
-        send_msg(&tx, msg1).await;
+        let svc1msg = ServiceNum::SvcOne(msg1);
+        send_msg(&tx, svc1msg).await;
 
         let msg2 = Message::new(format!("Call number {} done!!", x));
-        send_msg(&tx, msg2).await;
+        let svc2msg = ServiceNum::SvcTwo(msg2);
+        send_msg(&tx, svc2msg).await;
     }
 }
 
-async fn send_msg(tx: &mpsc::Sender<Message>, msg: Message) {
+async fn send_msg(tx: &mpsc::Sender<ServiceNum>, svc_num: ServiceNum) {
     let tx_clone = tx.clone();
-    tx_clone.send(msg).await.unwrap();
+    tx_clone.send(svc_num).await.unwrap();
 }
 
-async fn call_service(msg: &str) {
+async fn call_service1(msg: &str) {
     // create_service_conn();
-    println!("{}", msg)
+    println!("Service 1: {}", msg)
+}
+
+async fn call_service2(msg: &str) {
+    // create_service_conn();
+    println!("Service 2: {}", msg)
 }
 
 fn create_service_conn() {
@@ -43,10 +50,13 @@ fn create_service_conn() {
 }
 
 // Client Pool
-async fn run_client_pool(mut receiver: mpsc::Receiver<Message>) {
+async fn run_client_pool(mut receiver: mpsc::Receiver<ServiceNum>) {
     create_service_conn();
     while let Some(message) = receiver.recv().await {
-        call_service(&message.value).await
+        match message {
+            ServiceNum::SvcOne(m) => call_service1(&m.value).await,
+            ServiceNum::SvcTwo(m) => call_service2(&m.value).await,
+        }
     }
 }
 
@@ -61,4 +71,10 @@ impl Message {
             value: payload.to_string(),
         }
     }
+}
+
+#[derive(Debug)]
+enum ServiceNum {
+    SvcOne(Message),
+    SvcTwo(Message),
 }
