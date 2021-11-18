@@ -1,5 +1,5 @@
 use std::fmt::Debug;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 
 #[tokio::main]
 async fn main() {
@@ -19,13 +19,17 @@ async fn biz_logix(tx: mpsc::Sender<ServiceNum>) {
     for x in 1..=50 {
         println!("Call number {}", x);
 
-        let msg1 = Message::new(x);
+        let (ostx1, osrx1) = oneshot::channel();
+        let msg1 = Message::new(x, ostx1);
         let svc1msg = ServiceNum::SvcOne(msg1);
         send_msg(&tx, svc1msg).await;
+        println!("{}", osrx1.await.unwrap());
 
-        let msg2 = Message::new(format!("Call number {} done!!", x));
+        let (ostx2, osrx2) = oneshot::channel();
+        let msg2 = Message::new(format!("Call number {} done!!", x), ostx2);
         let svc2msg = ServiceNum::SvcTwo(msg2);
         send_msg(&tx, svc2msg).await;
+        println!("{}", osrx2.await.unwrap());
     }
 }
 
@@ -34,14 +38,14 @@ async fn send_msg(tx: &mpsc::Sender<ServiceNum>, svc_num: ServiceNum) {
     tx_clone.send(svc_num).await.unwrap();
 }
 
-async fn call_service1(msg: &str) {
+async fn call_service1(msg: Message) {
     // create_service_conn();
-    println!("Service 1: {}", msg)
+    msg.response_chan.send(format!("Service 1: {}", msg.value));
 }
 
-async fn call_service2(msg: &str) {
+async fn call_service2(msg: Message) {
     // create_service_conn();
-    println!("Service 2: {}", msg)
+    msg.response_chan.send(format!("Service 2: {}", msg.value));
 }
 
 fn create_service_conn() {
@@ -54,8 +58,8 @@ async fn run_client_pool(mut receiver: mpsc::Receiver<ServiceNum>) {
     create_service_conn();
     while let Some(message) = receiver.recv().await {
         match message {
-            ServiceNum::SvcOne(m) => call_service1(&m.value).await,
-            ServiceNum::SvcTwo(m) => call_service2(&m.value).await,
+            ServiceNum::SvcOne(m) => call_service1(m).await,
+            ServiceNum::SvcTwo(m) => call_service2(m).await,
         }
     }
 }
@@ -63,12 +67,14 @@ async fn run_client_pool(mut receiver: mpsc::Receiver<ServiceNum>) {
 #[derive(Debug)]
 struct Message {
     value: String,
+    response_chan: oneshot::Sender<String>,
 }
 
 impl Message {
-    fn new<T: std::fmt::Display>(payload: T) -> Message {
+    fn new<T: std::fmt::Display>(payload: T, response_chan: oneshot::Sender<String>) -> Message {
         Message {
             value: payload.to_string(),
+            response_chan,
         }
     }
 }
