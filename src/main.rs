@@ -8,7 +8,10 @@ fn route() {
 }
 
 fn biz_logix() {
-    call_service();
+    for x in (1..5) {
+        println!("Call number {}", x);
+        call_service();
+    }
 }
 
 fn call_service() {
