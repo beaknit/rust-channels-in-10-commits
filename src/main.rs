@@ -18,13 +18,12 @@ async fn route(tx: mpsc::Sender<Message>) {
 async fn biz_logix(tx: mpsc::Sender<Message>) {
     for x in 1..=50 {
         println!("Call number {}", x);
-        let msg1 = Message { value: x };
-        send_msg(&tx, msg1);
 
-        let msg2 = Message {
-            value: format!("Call number {} done!!", x),
-        };
-        send_msg(&tx, msg2);
+        let msg1 = Message::new(x);
+        send_msg(&tx, msg1).await;
+
+        let msg2 = Message::new(format!("Call number {} done!!", x));
+        send_msg(&tx, msg2).await;
     }
 }
 
@@ -52,6 +51,14 @@ async fn run_client_pool(mut receiver: mpsc::Receiver<Message>) {
 }
 
 #[derive(Debug)]
-struct Message<T> {
-    value: T,
+struct Message {
+    value: String,
+}
+
+impl Message {
+    fn new<T: std::fmt::Display>(payload: T) -> Message {
+        Message {
+            value: payload.to_string(),
+        }
+    }
 }
