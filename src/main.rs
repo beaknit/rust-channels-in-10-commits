@@ -10,18 +10,18 @@ async fn main() {
 }
 
 // #["/create-pointer", "GET"]
-async fn route(tx: mpsc::Sender<String>) {
+async fn route(tx: mpsc::Sender<Message>) {
     biz_logix(tx).await;
 }
 
-async fn biz_logix(tx: mpsc::Sender<String>) {
+async fn biz_logix(tx: mpsc::Sender<Message>) {
     for x in 1..=50 {
         println!("Call number {}", x);
         let tx_clone = tx.clone();
-        tx_clone
-            .send(format!("Call number {} done!!", x))
-            .await
-            .unwrap()
+        let msg = Message {
+            value: format!("Call number {} done!!", x),
+        };
+        tx_clone.send(msg).await.unwrap();
     }
 }
 
@@ -36,9 +36,14 @@ fn create_service_conn() {
 }
 
 // Client Pool
-async fn run_client_pool(mut receiver: mpsc::Receiver<String>) {
+async fn run_client_pool(mut receiver: mpsc::Receiver<Message>) {
     create_service_conn();
     while let Some(message) = receiver.recv().await {
-        call_service(&message).await
+        call_service(&message.value).await
     }
+}
+
+#[derive(Debug)]
+struct Message {
+    value: String,
 }
