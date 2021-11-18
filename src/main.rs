@@ -22,6 +22,9 @@ async fn biz_logix(tx: mpsc::Sender<Message>) {
             value: format!("Call number {} done!!", x),
         };
         tx_clone.send(msg).await.unwrap();
+
+        let msg2 = Message { value: 2 };
+        tx_clone.send(msg2).await.unwrap()
     }
 }
 
